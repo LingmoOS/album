@@ -1,0 +1,532 @@
+// SPDX-FileCopyrightText: 2020 - 2026 UnionTech Software Technology Co., Ltd.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "importtimelineview.h"
+#include "unionimage/baseutils.h"
+#include "widgets/widgtes/noresultwidget.h"
+
+#include <QScrollBar>
+#include <QScroller>
+#include <QMimeData>
+#include <QGraphicsOpacityEffect>
+#include <QTimer>
+#include <QStackedWidget>
+
+#include <DPushButton>
+#include <DTableView>
+#include <DCheckBox>
+#include <DHiDPIHelper>
+#include <DPaletteHelper>
+
+const int MAINWINDOW_NEEDCUT_WIDTH = 775;
+const int LISTVIEW_MINMUN_WIDTH = 520;
+const int IMPORTTITLE_FIX_WIDTH = 90;
+const int STATUSBAR_HEIGHT = 27;
+const int TIMELINE_TITLEHEIGHT = 36;
+const int SUSPENSION_WIDGET_HEIGHT = 87;//悬浮控件高度
+
+ImportTimeLineView::ImportTimeLineView(QmlWidget *parent)
+    : m_mainLayout(nullptr)
+    , m_oe(nullptr), m_oet(nullptr), m_ctrlPress(false)
+{
+    qDebug() << "Initializing ImportTimeLineView";
+    m_qquickContainer = parent;
+    //setAcceptDrops(true);
+    QVBoxLayout *pMainBoxLayout = new QVBoxLayout(this);
+    pMainBoxLayout->setContentsMargins(0, 0, 0, 0);
+    this->setLayout(pMainBoxLayout);
+
+    m_timeLineViewWidget = new QWidget(this);
+    pMainBoxLayout->addWidget(m_timeLineViewWidget);
+
+    m_oe = new QGraphicsOpacityEffect(this);
+    m_oet = new QGraphicsOpacityEffect(this);
+    m_oe->setOpacity(0.5);
+    m_oet->setOpacity(0.75);
+
+    initTimeLineViewWidget();
+    initConnections();
+
+    themeChangeSlot(DGuiApplicationHelper::instance()->themeType());
+    qDebug() << "ImportTimeLineView initialization completed";
+}
+
+void ImportTimeLineView::initConnections()
+{
+    qDebug() << "Setting up ImportTimeLineView connections";
+    connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::themeTypeChanged, this, &ImportTimeLineView::themeChangeSlot);
+    // 字体改变时,不同尺寸下同步调整标题栏区域控件显示大小
+    connect(qApp, &QGuiApplication::fontChanged, this, &ImportTimeLineView::updateSize);
+    qDebug() << "ImportTimeLineView connections established";
+}
+
+void ImportTimeLineView::updateDateNumLabel()
+{
+    qDebug() << "Updating date and number label";
+    auto fullStr = dateFullStr + " " + numFullStr;
+    m_dateNumCheckBox->setText(fullStr);
+    m_dateNumLabel->setText(fullStr);
+    qDebug() << "Date and number label updated:" << fullStr;
+}
+
+void ImportTimeLineView::themeChangeSlot(DGuiApplicationHelper::ColorType themeType)
+{
+    qDebug() << "Theme changed to:" << (themeType == DGuiApplicationHelper::LightType ? "Light" : "Dark");
+    DPalette pa1 = DPaletteHelper::instance()->palette(this);
+    auto bakColor = pa1.color(DPalette::Window);
+    bakColor.setAlpha(0.95 * 255);
+    pa1.setBrush(DPalette::Window, bakColor);
+    m_timeLineViewWidget->setPalette(pa1);
+
+    m_importTitleItem->setForegroundRole(DPalette::Window);
+    m_importTitleItem->setPalette(pa1);
+
+    DPalette pa = DPaletteHelper::instance()->palette(m_importLabel);
+    pa.setBrush(DPalette::Text, themeType == DGuiApplicationHelper::LightType ? lightTextColor : darkTextColor);
+    m_importLabel->setForegroundRole(DPalette::Text);
+    m_importLabel->setPalette(pa);
+
+    DPalette pal1 = DPaletteHelper::instance()->palette(m_dateNumCheckBox);
+    if (themeType == DGuiApplicationHelper::LightType) {
+        qDebug() << "Theme changed to Light";
+        pal1.setBrush(DPalette::Text, lightTextColor);
+        m_dateNumCheckBox->setForegroundRole(DPalette::Text);
+        m_dateNumCheckBox->setPalette(pal1);
+        m_dateNumLabel->setForegroundRole(DPalette::Text);
+        m_dateNumLabel->setPalette(pal1);
+    } else if (themeType == DGuiApplicationHelper::DarkType) {
+        qDebug() << "Theme changed to Dark";
+        pal1.setBrush(DPalette::Text, darkTextColor);
+        m_dateNumCheckBox->setForegroundRole(DPalette::Text);
+        m_dateNumCheckBox->setPalette(pal1);
+        m_dateNumLabel->setForegroundRole(DPalette::Text);
+        m_dateNumLabel->setPalette(pal1);
+    }
+    qDebug() << "Theme change completed";
+}
+
+ThumbnailListView *ImportTimeLineView::getListView()
+{
+    qDebug() << "ImportTimeLineView::getListView - Function entry, returning:" << m_importTimeLineListView;
+    return m_importTimeLineListView;
+}
+
+void ImportTimeLineView::updateSize()
+{
+    qDebug() << "Updating ImportTimeLineView size";
+    m_importTitleItem->setGeometry(0, 0, width() - 15, SUSPENSION_WIDGET_HEIGHT);
+    qDebug() << "ImportTimeLineView size updated to:" << width() - 15 << "x" << SUSPENSION_WIDGET_HEIGHT;
+}
+
+void ImportTimeLineView::onCheckBoxClicked()
+{
+    bool isSelect = m_dateNumCheckBox->isChecked();
+    qDebug() << "Checkbox clicked, selection state:" << isSelect;
+    //选中当前时间内的所有图片
+    m_importTimeLineListView->timeLimeFloatBtnClicked(dateFullStr, isSelect);
+}
+
+void ImportTimeLineView::slotNoPicOrNoVideo(bool isNoResult)
+{
+    qDebug() << "No result state changed:" << isNoResult;
+    m_noResultWidget->setVisible(isNoResult);
+    m_importTimeLineListView->setVisible(!isNoResult);
+
+    if (isNoResult) {
+        qDebug() << "Clearing labels due to no results";
+        m_importLabel->setText("");
+        m_dateNumCheckBox->setText("");
+        m_dateNumLabel->setText("");
+    }
+    qDebug() << "No result state changed - Exit";
+}
+
+void ImportTimeLineView::sltCurrentFilterChanged(ExpansionPanel::FilteData &data)
+{
+    qDebug() << "Filter changed to type:" << data.type;
+    int filterType = Types::All;
+    if (data.type == ItemType::ItemTypeNull) {
+        qDebug() << "Filter changed to type: All";
+        //显示全部
+        m_importTimeLineListView->showAppointTypeItem(ItemType::ItemTypeNull);
+        filterType = Types::All;
+    } else if (data.type == ItemType::ItemTypePic) {
+        qDebug() << "Filter changed to type: Picture";
+        //显示图片
+        m_importTimeLineListView->showAppointTypeItem(ItemType::ItemTypePic);
+        filterType = Types::Picture;
+    } else if (data.type == ItemType::ItemTypeVideo) {
+        qDebug() << "Filter changed to type: Video";
+        //显示视频
+        m_importTimeLineListView->showAppointTypeItem(ItemType::ItemTypeVideo);
+        filterType = Types::Video;
+    }
+    if (m_qquickContainer) {
+        qDebug() << "Setting filter type to:" << filterType;
+        m_qquickContainer->setFilterType(filterType);
+    }
+    clearAllSelection();
+    //如果过滤会后数量<=0，则不可用
+    bool hasItems = m_importTimeLineListView->getAppointTypeItemCount(m_ToolButton->getFilteType()) > 0;
+    m_ToolButton->setEnabled(hasItems);
+    m_ToolButton->setVisible(hasItems);
+    qDebug() << "Filter applied, items available:" << hasItems;
+    m_importTimeLineListView->setFocus();
+}
+
+QStringList ImportTimeLineView::selectPaths()
+{
+    qDebug() << "ImportTimeLineView::selectPaths - Function entry";
+    QStringList paths;
+    paths << m_importTimeLineListView->selectedPaths();
+    qDebug() << "ImportTimeLineView::selectPaths - Function exit, returning" << paths.size() << "paths";
+    return paths;
+}
+
+void ImportTimeLineView::initTimeLineViewWidget()
+{
+    qDebug() << "ImportTimeLineView::initTimeLineViewWidget - Function entry";
+    m_mainLayout = new QVBoxLayout();
+    //左侧距离分界线20px，缩略图spacing+缩略图边框
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
+    m_timeLineViewWidget->setLayout(m_mainLayout);
+
+    m_importTimeLineListView = new ThumbnailListView(ThumbnailDelegate::AlbumViewImportTimeLineViewType, -1, COMMON_STR_RECENT_IMPORTED, m_timeLineViewWidget);
+    m_importTimeLineListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_importTimeLineListView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_importTimeLineListView->setContentsMargins(0, 0, 0, 0);
+    m_importTimeLineListView->setFrameShape(DTableView::NoFrame);
+    m_importTimeLineListView->setFocusPolicy(Qt::NoFocus);
+    m_importTimeLineListView->m_imageType = COMMON_STR_RECENT_IMPORTED;
+    m_importTimeLineListView->m_currentUID = -1;
+    m_mainLayout->addWidget(m_importTimeLineListView);
+
+    //初始化筛选无结果窗口
+    m_noResultWidget = new NoResultWidget(this);
+    m_noResultWidget->setVisible(false);
+    m_mainLayout->addWidget(m_noResultWidget);
+
+    //滑动列表，刷新上方悬浮标题
+    connect(m_importTimeLineListView, &ThumbnailListView::sigTimeLineDataAndNum, this, &ImportTimeLineView::slotTimeLineDataAndNum);
+    //筛选显示，当先列表中内容为无结果
+    connect(m_importTimeLineListView, &ThumbnailListView::sigNoPicOrNoVideo, this, &ImportTimeLineView::slotNoPicOrNoVideo);
+
+    //添加悬浮title
+    m_importTitleItem = new DWidget(m_timeLineViewWidget);
+    m_importTitleItem->setFocusPolicy(Qt::NoFocus);
+    QVBoxLayout *titleViewLayout = new QVBoxLayout();
+    titleViewLayout->setContentsMargins(18, 10, 0, 0);
+    m_importTitleItem->setLayout(titleViewLayout);
+
+    //已导入
+    QHBoxLayout *hImportLayout = new QHBoxLayout();
+    m_importLabel = new DLabel();
+    m_importLabel->setText(tr("Import"));
+    hImportLayout->addWidget(m_importLabel);
+    DFontSizeManager::instance()->bind(m_importLabel, DFontSizeManager::T3, QFont::Normal);
+    QFont ft3 = DFontSizeManager::instance()->get(DFontSizeManager::T3);
+    ft3.setFamily("Noto Sans CJK SC");
+
+    //bug76892藏语占用更大高度
+    if (QLocale::system().language() == QLocale::Tibetan) {
+        m_importLabel->setFixedHeight(TIMELINE_TITLEHEIGHT + 25);
+    } else {
+        m_importLabel->setFixedHeight(TIMELINE_TITLEHEIGHT);
+    }
+    m_importLabel->setFont(ft3);
+
+    hImportLayout->addStretch(1);
+    hImportLayout->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    hImportLayout->setContentsMargins(0, 0, 19, 0);
+
+    // 已导入下的时间和计数
+    QHBoxLayout *hDateNumLayout = new QHBoxLayout();
+    m_dateNumCheckBox = new DCheckBox();
+    connect(m_dateNumCheckBox, &DCheckBox::clicked, this, &ImportTimeLineView::onCheckBoxClicked);
+    hDateNumLayout->addWidget(m_dateNumCheckBox);
+    DFontSizeManager::instance()->bind(m_dateNumCheckBox, DFontSizeManager::T6, QFont::Normal);
+    QFont ft6 = DFontSizeManager::instance()->get(DFontSizeManager::T6);
+    ft6.setFamily("Noto Sans CJK SC");
+
+    m_dateNumCheckBox->setFixedHeight(TIMELINE_TITLEHEIGHT);
+    m_dateNumCheckBox->setFont(ft6);
+
+    m_dateNumLabel = new DLabel();
+    m_dateNumLabel->setFixedHeight(TIMELINE_TITLEHEIGHT);
+    DFontSizeManager::instance()->bind(m_dateNumLabel, DFontSizeManager::T6, QFont::Medium);
+    m_dateNumLabel->setFont(ft6);
+    hDateNumLayout->addWidget(m_dateNumLabel);
+
+    connect(m_importTimeLineListView, &ThumbnailListView::sigShowCheckBox, this, &ImportTimeLineView::onShowCheckBox);
+    onShowCheckBox(false);
+
+    initDropDown();
+
+    hDateNumLayout->addStretch(100);
+    hDateNumLayout->addWidget(m_ToolButton);
+
+    titleViewLayout->addLayout(hImportLayout);
+    titleViewLayout->addLayout(hDateNumLayout);
+    titleViewLayout->addStretch(100);
+
+    m_importTitleItem->setAutoFillBackground(true);
+    m_importTitleItem->setContentsMargins(0, 0, 0, 0);
+    m_importTitleItem->setGeometry(0, 0, this->width() - 15, SUSPENSION_WIDGET_HEIGHT);
+    qDebug() << "ImportTimeLineView::initTimeLineViewWidget - Function exit";
+}
+
+void ImportTimeLineView::onShowCheckBox(bool bShow)
+{
+    qDebug() << "ImportTimeLineView::onShowCheckBox - Function entry, bShow:" << bShow;
+    m_dateNumCheckBox->setVisible(bShow);
+    m_dateNumLabel->setVisible(!bShow);
+    qDebug() << "ImportTimeLineView::onShowCheckBox - Function exit";
+}
+
+void ImportTimeLineView::clearAndStartLayout()
+{
+    //由于绘制需要使用listview的宽度，但是加载的时候listview还没有显示出来，宽度是不对的，所以在显示出来后用信号通知加载，记载完成后断开信号，
+    //后面的listview就有了正确的宽度，该信号槽就不需要再连接
+    qDebug() << "Starting layout initialization";
+    //获取所有时间线
+    m_timelines = DBManager::instance()->getImportTimelines();
+    qDebug() << "Retrieved" << m_timelines.size() << "timelines";
+
+    addTimelineLayout();
+
+    if (m_qquickContainer) {
+        int filterType = m_qquickContainer->filterType();
+        ExpansionPanel::FilteData data;
+        if (filterType == Types::All)
+            data.type = ItemType::ItemTypeNull;
+        else if (filterType == Types::Picture)
+            data.type = ItemType::ItemTypePic;
+        else if (filterType == Types::Video)
+            data.type = ItemType::ItemTypeVideo;
+        sltCurrentFilterChanged(data);
+    }
+
+    updateDateNumLabel();
+    qDebug() << "Layout initialization completed";
+}
+
+void ImportTimeLineView::addTimelineLayout()
+{
+    qDebug() << "Adding timeline layout";
+    m_importTimeLineListView->clearSelection();
+    m_importTimeLineListView->clearAll();
+    DBImgInfoList importList;
+
+    for (int timelineIndex = 0; timelineIndex < m_timelines.size(); timelineIndex++) {
+        qDebug() << "Processing timeline" << timelineIndex + 1 << "of" << m_timelines.size();
+        //获取当前时间照片
+        DBImgInfoList ImgInfoList = DBManager::instance()->getInfosByImportTimeline(m_timelines.at(timelineIndex));
+        qDebug() << "Retrieved" << ImgInfoList.size() << "items for timeline" << timelineIndex + 1;
+
+        //加时间线标题
+        QString date, num;
+        QStringList dateTimeList = m_timelines.at(timelineIndex).toString("yyyy.MM.dd hh:mm").split(" ");
+        QStringList datelist = dateTimeList.at(0).split(".");
+        if (datelist.count() > 2) {
+            if (dateTimeList.count() == 2) {
+                date = QString(QObject::tr("Imported on") + QObject::tr(" %1-%2-%3 %4"))
+                       .arg(datelist[0]).arg(datelist[1]).arg(datelist[2]).arg(dateTimeList[1]);
+            } else {
+                date = QString(QObject::tr("Imported on ") + QObject::tr("%1/%2/%3"))
+                       .arg(datelist[0]).arg(datelist[1]).arg(datelist[2]);
+            }
+        }
+        int photoCount = 0;
+        int videoCount = 0;
+        for (int i = 0; i < ImgInfoList.size(); i++) {
+            if (ImgInfoList.at(i).itemType == ItemTypePic) {
+                photoCount++;
+            } else if (ImgInfoList.at(i).itemType == ItemTypeVideo) {
+                videoCount++;
+            }
+        }
+        qDebug() << "Timeline" << timelineIndex + 1 << "contains" << photoCount << "photos and" << videoCount << "videos";
+
+        if (photoCount == 1 && videoCount == 0) {
+            num = tr("1 photo");
+        } else if (photoCount == 0 && videoCount == 1) {
+            num = tr("1 video");
+        } else if (photoCount > 1 && videoCount == 0) {
+            num = tr("%n photos", "", photoCount);
+        } else if (photoCount == 0 && videoCount > 1) {
+            num = tr("%n videos", "", videoCount);
+        } else if (photoCount > 1 && videoCount > 1) {
+            num = tr("%n items", "", (photoCount + videoCount));
+        }
+
+        if (timelineIndex == 0) {
+            //加空白栏
+            dateFullStr = date;
+            numFullStr = num;
+            qDebug() << "Setting initial date and number:" << date << num;
+
+            DBImgInfo info;
+            info.itemType = ItemTypeBlank;
+            info.imgWidth = m_importTimeLineListView->width();
+            m_importTimeLineListView->m_blankItemHeight = SUSPENSION_WIDGET_HEIGHT;
+            info.imgHeight = SUSPENSION_WIDGET_HEIGHT;
+            info.date = date;
+            info.num = num;
+            importList.append(info);
+        } else {
+            //加已导入时间线标题
+            DBImgInfo info;
+            info.itemType = ItemTypeImportTimeLineTitle;
+            info.imgWidth = this->width();
+            info.imgHeight = 40;
+            info.date = date;
+            info.num = num;
+            importList.append(info);
+        }
+        //加当前时间下的图片
+        for (auto &eachInfo : ImgInfoList) {
+            //存入当前所属时间线的日期和照片数量信息
+            eachInfo.date = date;
+            eachInfo.num = num;
+        }
+        importList.append(ImgInfoList);
+    }
+
+    qDebug() << "Inserting" << importList.size() << "items into timeline view";
+    m_importTimeLineListView->insertThumbnails(importList);
+
+    // 添加底栏空白区域
+    //m_importTimeLineListView->insertBlankOrTitleItem(ItemTypeBlank, "", "", STATUSBAR_HEIGHT);
+}
+
+void ImportTimeLineView::initDropDown()
+{
+    qDebug() << "Initializing dropdown menu";
+    m_expansionMenu = new ExpansionMenu(this);
+    m_ToolButton = m_expansionMenu->mainWidget();
+    m_ToolButton->setText(QObject::tr("All"));
+    m_ToolButton->setIcon(DHiDPIHelper::loadNxPixmap(":/icons/deepin/builtin/icons/darkalbum_all_16px.svg"));
+    ExpansionPanel::FilteData data;
+
+    data.icon_r_light = QIcon::fromTheme("album_all");
+    data.icon_r_dark  = QIcon::fromTheme("album_all_hover");
+    data.icon_r_path  = "album_all";
+    data.text = QObject::tr("All");
+    data.type = ItemType::ItemTypeNull;
+    m_expansionMenu->setDefaultFilteData(data);
+    m_expansionMenu->addNewButton(data);
+
+    data.icon_r_light = QIcon::fromTheme("album_pic");
+    data.icon_r_dark  = QIcon::fromTheme("album_pic_hover");
+    data.icon_r_path  = "album_pic";
+    data.text = QObject::tr("Photos");
+    data.type = ItemType::ItemTypePic;
+    m_expansionMenu->addNewButton(data);
+
+    data.icon_r_light = QIcon::fromTheme("album_video");
+    data.icon_r_dark  = QIcon::fromTheme("album_video_hover");
+    data.icon_r_path  = "album_video";
+    data.text = QObject::tr("Videos");
+    data.type = ItemType::ItemTypeVideo;
+    m_expansionMenu->addNewButton(data);
+
+    connect(m_ToolButton, &FilterWidget::currentItemChanged, this, &ImportTimeLineView::sltCurrentFilterChanged);
+    qDebug() << "Dropdown menu initialization completed";
+}
+
+void ImportTimeLineView::slotTimeLineDataAndNum(QString data, QString num, QString text)
+{
+    qDebug() << "Updating timeline data and number:" << data << num << text;
+    m_importLabel->setText(tr("Import"));
+    if (!data.isEmpty()) {
+        dateFullStr = data;
+    }
+    if (!num.isEmpty()) {
+        numFullStr = num;
+    }
+
+    updateDateNumLabel();
+
+    m_dateNumCheckBox->setChecked(text != QObject::tr("Select"));
+    qDebug() << "Timeline data and number updated";
+}
+
+void ImportTimeLineView::resizeEvent(QResizeEvent *ev)
+{
+    // qDebug() << "ImportTimeLineView::resizeEvent - Function entry, new size:" << ev->size();
+    Q_UNUSED(ev);
+    updateSize();
+    // qDebug() << "ImportTimeLineView::resizeEvent - Function exit";
+}
+
+void ImportTimeLineView::showEvent(QShowEvent *ev)
+{
+    // qDebug() << "ImportTimeLineView::showEvent - Function entry";
+    Q_UNUSED(ev);
+    updateSize();
+    // qDebug() << "ImportTimeLineView::showEvent - Function exit";
+}
+
+void ImportTimeLineView::dragEnterEvent(QDragEnterEvent *e)
+{
+    // qDebug() << "ImportTimeLineView::dragEnterEvent - Function entry";
+    if (!Libutils::base::checkMimeUrls(e->mimeData()->urls())) {
+        qDebug() << "Drag enter rejected - invalid mime data";
+        return;
+    }
+    e->setDropAction(Qt::CopyAction);
+    e->accept();
+}
+
+void ImportTimeLineView::dropEvent(QDropEvent *event)
+{
+    // qDebug() << "ImportTimeLineView::dropEvent - Function entry";
+    QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.isEmpty()) {
+        qDebug() << "Drop event rejected - no URLs";
+        return;
+    }
+    // qDebug() << "Processing drop event with" << urls.size() << "URLs";
+    //ImageEngineApi::instance()->ImportImagesFromUrlList(urls, nullptr, -1, this);
+    event->accept();
+}
+
+void ImportTimeLineView::dragMoveEvent(QDragMoveEvent *event)
+{
+    // qDebug() << "Drag move event at position:" << event->pos();
+    event->accept();
+}
+
+void ImportTimeLineView::mousePressEvent(QMouseEvent *e)
+{
+    // qDebug() << "Mouse pressed at position:" << e->pos();
+    if (!m_ctrlPress && e->button() == Qt::LeftButton) {
+        // qDebug() << "Mouse pressed at position:" << e->pos();
+        m_importTimeLineListView->clearSelection();
+        emit sigUpdatePicNum();
+    }
+    DWidget::mousePressEvent(e);
+    // 焦点移除，需要同步各个选择按钮状态
+    m_importTimeLineListView->updatetimeLimeBtnText();
+}
+
+void ImportTimeLineView::clearAllSelection()
+{
+    // qDebug() << "Clearing all selections";
+    m_importTimeLineListView->clearSelection();
+}
+
+QPaintEngine *ImportTimeLineView::paintEngine() const
+{
+    // qDebug() << "ImportTimeLineView::paintEngine - Function entry, returning nullptr";
+    return nullptr;
+}
+
+void ImportTimeLineView::paintEvent(QPaintEvent *event)
+{
+    // qDebug() << "ImportTimeLineView::paintEvent - Function entry";
+    QWidget::paintEvent(event);
+    if (m_qquickContainer)
+        m_qquickContainer->update(event->rect());
+}
