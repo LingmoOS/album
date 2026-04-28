@@ -1,7 +1,7 @@
-Source: deepin-album
+Source: velora-album
 Section: utils
 Priority: optional
-Maintainer: Deepin Packages Builder <packages@deepin.com>
+Maintainer: Lingmo OS Team <team@lingmo.org>
 Build-Depends:
  debhelper (>= 11),
  cmake,
