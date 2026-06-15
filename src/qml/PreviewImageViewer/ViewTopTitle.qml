@@ -188,8 +188,8 @@ Rectangle {
                     productName: !FileControl.isAlbum() ? qsTr("Image Viewer")
                                                              : qsTr("Album")
                     version: Qt.application.version
-                    websiteName:DTK.deepinWebsiteName
-                    websiteLink:DTK.deepinWebsiteLink
+                    websiteName:DTK.lingmoSystemName
+                    websiteLink:DTK.lingmoSystemWebLink
                     license:qsTr("%1 is released under %2.").arg(productName).arg("GPLV3")
                 }
             }

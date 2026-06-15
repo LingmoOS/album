@@ -131,8 +131,8 @@ TitleBar {
                 productIcon: "deepin-album"
                 version: Qt.application.version
                 description: qsTr("Album is a stylish management tool for viewing and organizing photos and videos.")
-                websiteName: DTK.deepinWebsiteName
-                websiteLink: DTK.deepinWebsiteLink
+                websiteName: DTK.lingmoSystemName
+                websiteLink: DTK.lingmoSystemWebLink
             }
         }
         QuitAction {
