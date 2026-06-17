@@ -918,7 +918,7 @@ void FileControl::resetImageFiles(const QStringList &filePaths)
 QUrl FileControl::getCompanyLogo()
 {
     qDebug() << "FileControl::getCompanyLogo - Function entry";
-    QString logoPath = DSysInfo::distributionOrgLogo(DSysInfo::Distribution, DSysInfo::Light, ":/assets/images/deepin-logo.svg");
+    QString logoPath = DSysInfo::distributionOrgLogo(DSysInfo::Distribution, DSysInfo::Light, ":/assets/images/lingmo-logo.svg");
     return QUrl::fromLocalFile(logoPath);
 }
 
