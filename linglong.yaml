@@ -6,14 +6,14 @@ version: '1'
 
 package:
   id: org.deepin.album
-  name: deepin-album
+  name: lingmo-album
   version: 6.0.51.1
   kind: app
   description: |
     album for deepin os.
 
 command:
-  - deepin-album
+  - lingmo-album
 
 base: org.deepin.base/25.2.2
 runtime: org.deepin.runtime.webengine/25.2.2
@@ -47,7 +47,7 @@ build: |
 
   # 项目生成应用名和动态隐式加载的依赖库，ldd无法找到的其他库
   LDD_FILES=(
-    deepin-album
+    lingmo-album
     libavcodec.so
     libavutil.so
     libavformat.so

@@ -106,7 +106,7 @@ set(APPSHAREDIR  ${CMAKE_INSTALL_PREFIX}/share/${CMAKE_PROJECT_NAME})
 install(TARGETS ${BIN_NAME} DESTINATION ${APP_BIN_INSTALL_DIR})
 install(FILES ${PROJECT_SOURCE_DIR}/src/${CMAKE_PROJECT_NAME}.desktop DESTINATION share/applications)
 install(FILES ${PROJECT_SOURCE_DIR}/src/icon/deepin-album.svg DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/scalable/apps)
-install(FILES com.deepin.album.service DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/services/)
+install(FILES com.lingmo.album.service DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dbus-1/services/)
 
 #translations
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/translations

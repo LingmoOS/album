@@ -12,9 +12,9 @@
 class ApplicationAdaptor : public QDBusAbstractAdaptor
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "com.deepin.album")
+    Q_CLASSINFO("D-Bus Interface", "com.lingmo.album")
     Q_CLASSINFO("D-Bus Introspection",
-                "<interface name=\"com.deepin.album\">\n"
+                "<interface name=\"com.lingmo.album\">\n"
                 "    <method name=\"openImageFile\">\n"
                 "        <arg direction=\"in\" type=\"s\" name=\"fileName\"/>\n"
                 "    </method>\n"

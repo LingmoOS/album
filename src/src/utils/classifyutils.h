@@ -7,7 +7,7 @@
 
 #include <QtDBus/QtDBus>
 /*
- * Proxy class for interface com.deepin.logviewer
+ * Proxy class for interface com.lingmo.logviewer
  */
 class DaemonImageClassifyInterface : public QDBusAbstractInterface
 {
@@ -15,15 +15,15 @@ class DaemonImageClassifyInterface : public QDBusAbstractInterface
 public:
     static inline const char *staticInterfaceName()
     {
-        return "com.deepin.imageclassify";
+        return "com.lingmo.imageclassify";
     }
     static inline const char *staticServiceName()
     {
-        return "com.deepin.imageclassify";
+        return "com.lingmo.imageclassify";
     }
     static inline const char *staticObjectPath()
     {
-        return "/com/deepin/imageclassify";
+        return "/com/lingmo/imageclassify";
     }
 
 public:
@@ -48,7 +48,7 @@ Q_SIGNALS:   // SIGNALS
 };
 
 namespace com {
-namespace deepin {
+namespace lingmo {
 typedef ::DaemonImageClassifyInterface imageclassify;
 }
 }   // namespace com

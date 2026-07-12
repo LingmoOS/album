@@ -93,7 +93,7 @@ FileControl::FileControl(QObject *parent)
     : QObject(parent)
 {
     qDebug() << "Initializing FileControl";
-    m_ocrInterface = new OcrInterface("com.deepin.Ocr", "/com/deepin/Ocr", QDBusConnection::sessionBus(), this);
+    m_ocrInterface = new OcrInterface("com.lingmo.Ocr", "/com/lingmo/Ocr", QDBusConnection::sessionBus(), this);
     m_shortcutViewProcess = new QProcess(this);
     m_config = LibConfigSetter::instance();
     imageFileWatcher = ImageFileWatcher::instance();
@@ -233,7 +233,7 @@ void FileControl::setWallpaper(const QString &imgPath)
             {
                 // 设置壁纸代码改变，采用DBus,原方法保留
                 if (/*!qEnvironmentVariableIsEmpty("FLATPAK_APPID")*/ 1) {
-                    // gdbus call -e -d com.deepin.daemon.Appearance -o /com/deepin/daemon/Appearance -m
+                    // gdbus call -e -d com.lingmo.daemon.Appearance -o /com/lingmo/daemon/Appearance -m
                     // com.deepin.daemon.Appearance.Set background /home/test/test.png
                     qDebug() << "Setting wallpaper via flatpak:" << path;
                     QDBusInterface interfaceV23(

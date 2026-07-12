@@ -2515,8 +2515,8 @@ void AlbumControl::openDeepinMovie(const QString &path)
         static const int kMinimalOsVersion = 23;
         const int osMajor = DSysInfo::majorVersion().toInt();
         if (osMajor >= kMinimalOsVersion) {
-            qInfo() << "trying to start deepin-movie via Dbus: com.deepin.movie->openFile";
-            QDBusMessage message = QDBusMessage::createMethodCall("com.deepin.movie", "/", "com.deepin.movie", "openFile");
+            qInfo() << "trying to start deepin-movie via Dbus: com.lingmo.movie->openFile";
+            QDBusMessage message = QDBusMessage::createMethodCall("com.lingmo.movie", "/", "com.lingmo.movie", "openFile");
             message << path;
             QDBusMessage retMessage = QDBusConnection::sessionBus().call(message);
 

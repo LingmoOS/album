@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
     // 设置DBus接口
     qDebug() << "Registering DBus service and object";
     ApplicationAdaptor adaptor(&fileControl);
-    QDBusConnection::sessionBus().registerService("com.deepin.album");
+    QDBusConnection::sessionBus().registerService("com.lingmo.album");
     QDBusConnection::sessionBus().registerObject("/", &fileControl);
 
     qInfo() << "Application initialization completed";
