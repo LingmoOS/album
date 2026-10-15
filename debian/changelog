@@ -1,3 +1,12 @@
+album (6.0.54.lingmo.1) unstable; urgency=medium
+
+  * fix: 补 QScreen 完整类型
+    Q_PROPERTY(QScreen *...) 只前置声明 QScreen，Qt 6.8.2 的 moc 会报
+    "Pointer Meta Types must either point to fully-defined types or be declared
+    with Q_DECLARE_OPAQUE_POINTER(T *)"。与 velora-shell 的 dockproxy.h 同类问题，一并修掉。
+
+ -- Lingmo OS Team <team@lingmo.org>  Thu, 15 Oct 2026 21:15:08 +0800
+
 velora-album (6.0.53.lingmo.1) unstable; urgency=medium
 
   * new release for Lingmo OS.

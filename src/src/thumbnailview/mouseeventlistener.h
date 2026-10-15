@@ -14,6 +14,7 @@
 
 #include <QQuickItem>
 
+#include <QScreen>   // Q_PROPERTY(QScreen *) 在 Qt 6.8 要求完整类型
 /**
  * This item spies on mouse events from all child objects including child MouseAreas regardless
  * of whether the child MouseArea propagates events. It does not accept the event.
